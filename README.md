@@ -148,7 +148,28 @@ git push -u origin main
 └── README.md
 ```
 
-## Debug khi có lỗi
+## 8. (Tùy chọn) Tự động tạo conversation thật cho "Existing Customer"
+
+Mặc định, khi khách chọn "Existing Customer", app chỉ hiện thông báo hướng
+dẫn họ tự gõ câu hỏi. Nếu muốn app **tự động tạo một conversation thật**
+(hiện ngay trong Inbox, teammate xem/trả lời được), làm theo các bước sau:
+
+1. developers.intercom.com → app của bạn → **Test and publish → Your workspaces**.
+2. Ở dòng workspace của bạn, bấm icon con mắt 👁 để hiện **Access token**, bấm icon copy để sao chép.
+3. Dán vào Vercel: Environment Variables → key `INTERCOM_ACCESS_TOKEN` → **Redeploy**.
+
+Từ giờ, mỗi khi khách chọn "Existing Customer", server sẽ gọi Intercom REST
+API (`POST /conversations`) để tạo 1 conversation thật, gắn đúng contact
+đang tương tác, với nội dung mở đầu "I'm an existing customer and need
+support." — teammate sẽ thấy ngay trong Inbox.
+
+**An toàn:** nếu không cấu hình biến này, hoặc API gọi thất bại (ví dụ thiếu
+quyền), app **tự động fallback** về thông báo đơn giản như trước — không
+bao giờ bị lỗi/crash vì thiếu cấu hình này.
+
+---
+
+## 9. Debug khi có lỗi
 
 - **Sheet không mở / báo lỗi**: mở DevTools → Network → tìm request tới
   `/sheet`, kiểm tra status code và response có phải HTML hợp lệ không.
