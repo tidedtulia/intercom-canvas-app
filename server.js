@@ -134,25 +134,10 @@ function decodeIntercomUser(encodedUser) {
 }
 
 function greetingCanvas(req) {
-  const sheetUrl = `${getBaseUrl(req)}/sheet`;
   return {
     canvas: {
       content: {
-        components: [
-          {
-            type: "list",
-            id: "start_list",
-            items: [
-              {
-                type: "item",
-                id: "start",
-                title: "Send us a message",
-                subtitle: "We typically reply in under 5 minutes",
-                action: { type: "sheet", url: sheetUrl },
-              },
-            ],
-          },
-        ],
+        components: [startListComponent(req)],
       },
     },
   };
@@ -238,6 +223,25 @@ async function createRealConversation(req) {
   }
 }
 
+// Component "Send us a message" dung chung, de nguoi dung luon co the bam
+// lai tu dau ngay ca sau khi da xem xong thong bao ket qua.
+function startListComponent(req) {
+  const sheetUrl = `${getBaseUrl(req)}/sheet`;
+  return {
+    type: "list",
+    id: "start_list",
+    items: [
+      {
+        type: "item",
+        id: "start",
+        title: "Send us a message",
+        subtitle: "We typically reply in under 5 minutes",
+        action: { type: "sheet", url: sheetUrl },
+      },
+    ],
+  };
+}
+
 async function afterSheetCanvas(action, req) {
   if (action === "existing_customer") {
     const created = await createRealConversation(req);
@@ -255,6 +259,8 @@ async function afterSheetCanvas(action, req) {
               align: "left",
               style: "header",
             },
+            { type: "spacer", size: "m" },
+            startListComponent(req),
           ],
         },
       },
@@ -273,6 +279,8 @@ async function afterSheetCanvas(action, req) {
               align: "left",
               style: "header",
             },
+            { type: "spacer", size: "m" },
+            startListComponent(req),
           ],
         },
       },
