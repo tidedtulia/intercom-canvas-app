@@ -128,11 +128,17 @@ function greetingCanvas() {
             size: "m",
           },
           {
-            type: "button",
-            id: "start",
-            label: "Send us a message",
-            style: "primary",
-            action: { type: "submit" },
+            type: "list",
+            id: "start_list",
+            items: [
+              {
+                type: "item",
+                id: "start",
+                title: "Send us a message",
+                subtitle: "We typically reply in under 5 minutes",
+                action: { type: "submit" },
+              },
+            ],
           },
         ],
       },
