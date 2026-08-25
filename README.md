@@ -1,37 +1,38 @@
-# Intercom Canvas Kit App — Welcome flow + WhatsApp handoff
+# Intercom Canvas Kit App — Sheets (custom HTML/CSS) + WhatsApp handoff
 
-Custom Messenger App cho Intercom, tái tạo đúng luồng 3 màn hình trong thiết kế của bạn:
+Custom Messenger App cho Intercom, dùng **Canvas Kit Sheets** (iframe với
+HTML/CSS/JS tự code hoàn toàn) để khớp chính xác với thiết kế của bạn — nền
+teal, icon avatar tròn, chevron, nút WhatsApp xanh lá... không bị giới hạn
+bởi các component có sẵn của Canvas Kit nữa.
 
-1. **Màn hình 1** (`/initialize`, hiện ngay khi Home mở): **"Hi there 👋 /
-   How can we help? / [Send us a message]"**
-2. **Màn hình 2** (`/submit`, SAU KHI bấm nút ở Màn hình 1): **"Welcome! Are
-   you an existing customer or new to us?"** với 2 lựa chọn. Intercom tự
-   động hiện nút back (←) để quay lại Màn hình 1 — không cần code thêm.
-3. **Màn hình 3a** (chọn New Customer) → hiện nút **"Continue on WhatsApp"**
-   → bấm vào → WhatsApp mở với tin nhắn được điền sẵn.
-   **Màn hình 3b** (chọn Existing Customer) → hiện thông báo hướng dẫn.
+## Luồng hoạt động
 
-App có sẵn cơ chế **xác thực chữ ký request** (`X-Body-Signature`) để đảm bảo
-chỉ Intercom mới gọi được webhook của bạn — bật tự động khi bạn cấu hình
-`INTERCOM_CLIENT_SECRET`.
+1. **Màn hình 1** (`/initialize`, hiện ngay khi Home mở) — vẫn dùng Content
+   Component đơn giản: "Hi there 👋 / How can we help? / [Send us a message]".
+   Nút này có action **type `sheet`** (không phải `submit`) → bấm vào sẽ mở
+   1 iframe (Sheet).
+2. **`/sheet`** — trả về 1 trang HTML đầy đủ (xem `sheet-template.js`), chứa:
+   - Màn hình **Welcome** (chọn Existing/New Customer) — style teal khớp mockup
+   - Màn hình **WhatsApp handoff** — chuyển đổi bằng JS thuần trong cùng
+     iframe, không cần gọi lại server
+3. **`/submit-sheet`** — được gọi khi trang HTML trong Sheet gọi
+   `INTERCOM_MESSENGER_SHEET_LIBRARY.submitSheet(...)`:
+   - `action: "back"` → đóng Sheet, quay về Màn hình 1 (Hi there)
+   - `action: "existing_customer"` → đóng Sheet, hiện thông báo hướng dẫn
+   - `action: "new_customer_whatsapp"` → đóng Sheet, hiện thông báo cảm ơn
+     (WhatsApp đã được mở ở tab mới từ trước đó, ngay trong file HTML)
 
-> **Quan trọng:** vì app này đã tự có Màn hình 1 (Hi there + nút "Send us a
-> message") làm điểm bắt đầu, bạn nên **gỡ card "New conversation" mặc định**
-> khỏi Home (Settings → Messenger → Widget → Customize Home with apps) để
-> tránh hiện 2 nút "Send us a message" trùng lặp cạnh nhau.
-
-> **Giới hạn cần biết:** Canvas Kit không có action "mở một cuộc hội thoại
-> thật". Nhánh "Existing Customer" hiện chỉ hiện thông báo hướng dẫn, không
-> tự mở được conversation thật. Xem mục **8. Nâng cấp thêm** nếu muốn tự
-> động tạo hẳn một conversation thật.
+> **Vì sao đổi sang Sheets?** Cách cũ (Content Components: text/list/button)
+> không cho phép tùy chỉnh màu nền, icon, bo góc... Sheets cho toàn quyền
+> kiểm soát HTML/CSS/JS, đổi lại phức tạp hơn một chút về mặt kỹ thuật.
 
 ---
 
 ## 1. Chuẩn bị
 
 - Node.js >= 18
-- Tài khoản [Vercel](https://vercel.com) (đã liên kết với GitHub)
-- Tài khoản [Intercom Developer Hub](https://developers.intercom.com) (dùng chung tài khoản Intercom của workspace)
+- Tài khoản Vercel (đã liên kết GitHub)
+- Tài khoản Intercom Developer Hub
 - Số WhatsApp Business đã kích hoạt
 
 ---
@@ -41,27 +42,28 @@ chỉ Intercom mới gọi được webhook của bạn — bật tự động k
 ```bash
 npm install
 cp .env.example .env
-# mở .env, điền WHATSAPP_NUMBER của bạn (bỏ trống INTERCOM_CLIENT_SECRET khi test local)
+# điền WHATSAPP_NUMBER, để trống INTERCOM_CLIENT_SECRET khi test local
 
 npm start
 # server chạy tại http://localhost:3000
 ```
 
-Test nhanh bằng curl (mở terminal thứ 2):
+Test nhanh bằng curl:
 
 ```bash
 curl -X POST http://localhost:3000/initialize
 
-curl -X POST http://localhost:3000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"component_id":"new_customer"}'
-
-curl -X POST http://localhost:3000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"component_id":"existing_customer"}'
+# Xem trang Sheet trực tiếp trong trình duyệt (mở URL này để xem giao diện):
+# http://localhost:3000/sheet  (cần đổi thành GET tạm thời để xem bằng trình
+# duyệt, hoặc dùng curl -X POST http://localhost:3000/sheet -d '{}' -H "Content-Type: application/json")
 ```
 
-Mỗi lệnh phải trả về JSON dạng `{"canvas": {"content": {"components": [...]}}}`.
+**Mẹo xem trước giao diện Sheet nhanh nhất:** mở file `sheet-template.js`,
+copy phần HTML bên trong (từ `<!DOCTYPE html>` đến `</html>`) dán vào 1 file
+`.html` bất kỳ rồi mở bằng trình duyệt — sẽ thấy đúng giao diện teal, có thể
+bấm thử các nút (trừ phần gọi `INTERCOM_MESSENGER_SHEET_LIBRARY` sẽ báo lỗi
+vì không có thư viện thật, nhưng phần chuyển màn hình New Customer vẫn xem
+được).
 
 ---
 
@@ -70,86 +72,66 @@ Mỗi lệnh phải trả về JSON dạng `{"canvas": {"content": {"components"
 ```bash
 git init
 git add .
-git commit -m "Initial commit: Intercom Canvas Kit welcome + WhatsApp handoff"
+git commit -m "Chuyen sang kien truc Sheets, khop 100% design"
 git branch -M main
 git remote add origin https://github.com/<username>/<ten-repo>.git
 git push -u origin main
 ```
 
-`.gitignore` đã loại trừ sẵn `node_modules/` và `.env` — không lo commit nhầm secret.
-
 ---
 
-## 4. Deploy lên Vercel (qua GitHub, tự động deploy mỗi lần push)
+## 4. Deploy lên Vercel
 
-1. Vào [vercel.com/new](https://vercel.com/new), chọn **Import Git Repository**.
-2. Chọn đúng repo bạn vừa push.
-3. Vercel tự nhận diện `vercel.json` — không cần chỉnh Build/Output settings.
-4. Trước khi bấm **Deploy**, mở mục **Environment Variables**, thêm:
+1. [vercel.com/new](https://vercel.com/new) → Import Git Repository → chọn repo này.
+2. Vercel tự nhận diện `vercel.json`.
+3. Thêm Environment Variables trước khi Deploy:
 
    | Key | Value |
    |---|---|
-   | `WHATSAPP_NUMBER` | Số WhatsApp Business, không dấu `+`, ví dụ `84901234567` |
+   | `WHATSAPP_NUMBER` | Số WhatsApp Business, không dấu `+` |
    | `WHATSAPP_PREFILL_TEXT` | Nội dung tin nhắn điền sẵn (tùy chọn) |
-   | `INTERCOM_CLIENT_SECRET` | Lấy ở bước 5 bên dưới — **có thể thêm sau**, quay lại đây để bổ sung rồi bấm **Redeploy** |
+   | `INTERCOM_CLIENT_SECRET` | Lấy ở bước 5 — có thể thêm sau rồi Redeploy |
 
-5. Bấm **Deploy**. Sau khi xong, bạn có 1 URL dạng:
-   `https://<ten-project>.vercel.app`
-
-Từ giờ, mỗi lần bạn `git push` lên nhánh `main`, Vercel tự động deploy bản mới — không cần làm lại các bước trên.
+4. Bấm **Deploy**. Từ giờ mỗi lần `git push` lên `main`, Vercel tự deploy lại.
 
 ---
 
 ## 5. Đăng ký app trong Intercom Developer Hub
 
-1. Vào **developers.intercom.com** → đăng nhập → **New app**.
-2. Đặt tên (ví dụ "Welcome Flow") → chọn đúng workspace của bạn.
-3. Vào **Basic Info**, copy giá trị **Client Secret** — dán vào biến
-   `INTERCOM_CLIENT_SECRET` trên Vercel (bước 4) rồi **Redeploy**.
-4. Vào **Configure → Canvas Kit**, mở dropdown **"For users, leads, and visitors"**.
-5. Điền 2 webhook URL (thay bằng domain Vercel thật của bạn):
-   - **Initialize flow webhook URL**: `https://<ten-project>.vercel.app/initialize`
-   - **Submit flow webhook URL**: `https://<ten-project>.vercel.app/submit`
-6. Tick nơi app được phép hiển thị → chọn **Messenger Home**.
-7. Bấm **Save**, đảm bảo toggle chuyển sang **On**.
+1. developers.intercom.com → **New app** (hoặc mở app đã tạo trước đó).
+2. **Basic Info** → copy **Client Secret** → dán vào `INTERCOM_CLIENT_SECRET` trên Vercel → **Redeploy**.
+3. **Configure → Canvas Kit** → mở **"For users, leads, and visitors"**.
+4. Tick **"Place on the Messenger home screen"**.
+5. Điền webhook URL:
+   - **Initialize flow webhook URL**: `https://<domain-vercel>.vercel.app/initialize`
+   - **Submit flow webhook URL**: `https://<domain-vercel>.vercel.app/submit`
+   - **Configure flow webhook URL**: để trống
+   - **Submit Sheet flow webhook URL**: `https://<domain-vercel>.vercel.app/submit-sheet`
+
+   Lưu ý: URL cho action `sheet` (mở iframe) **không cần điền tay** ở đây —
+   server tự sinh ra URL này (`/sheet`) và gửi kèm trong response của
+   `/initialize`, dựa trên chính domain đang chạy.
+
+6. Bấm **Save**, bật toggle **On**.
 
 ---
 
 ## 6. Gắn app vào Messenger Home
 
-1. Trong Intercom: **Settings → Channels → Messenger → Widget**.
-2. Kéo tới **"Customize Home with apps"** → bấm **"Add an app"** → chọn app vừa tạo.
-3. (Tùy chọn) Ẩn card "New conversation" mặc định nếu muốn app này thay thế hoàn toàn.
-4. Bấm **Save and set live**.
+1. Settings → Channels → Messenger → Widget → **"Customize Home with apps"** → **Add an app** → chọn app vừa tạo.
+2. Bấm **Save and set live**.
 
 ---
 
 ## 7. Test trên môi trường thật
 
-- Mở website đã nhúng Messenger, bấm vào app.
-- Thử cả 2 nhánh **Existing Customer** và **New Customer**.
-- Với **New Customer**, bấm **"Continue on WhatsApp"**, xác nhận WhatsApp mở đúng số, đúng nội dung tin nhắn điền sẵn.
-- Nếu `INTERCOM_CLIENT_SECRET` đã cấu hình đúng, mọi thao tác vẫn chạy bình thường (vì request thật từ Intercom luôn có chữ ký hợp lệ). Nếu app báo lỗi 401 ngay khi mở, kiểm tra lại giá trị secret đã copy đúng chưa.
-
----
-
-## 8. Nâng cấp thêm (tùy chọn): tự động tạo conversation thật cho "Existing Customer"
-
-Nếu muốn nhánh "Existing Customer" tự động tạo một conversation thật (hiện
-trong Inbox, có thể assign cho team), bạn cần:
-
-1. Tạo **Access Token** cho app trong Developer Hub (**Configure → Authentication**).
-2. Trong `server.js`, ở nhánh xử lý `component_id === "existing_customer"`, gọi
-   Intercom REST API `POST https://api.intercom.io/conversations` kèm token
-   đó để tạo conversation mới gắn với contact hiện tại (Intercom gửi kèm
-   thông tin contact trong request body `/submit` — dùng field đó để xác
-   định người gửi).
-3. Trả về canvas xác nhận, ví dụ: "Đã kết nối bạn với đội hỗ trợ, kiểm tra
-   tab Messages nhé!"
-
-Đây là phần backend engineering thật sự (không còn thuộc phạm vi no-code) —
-tài liệu API:
-https://developers.intercom.com/docs/references/rest-api/api.intercom.io/conversations/createconversation
+1. Mở website đã nhúng Messenger → bấm app trên Home ("Send us a message").
+2. Sheet (iframe) mở ra, kiểm tra:
+   - Nền teal, chữ "Welcome! 👋 Are you an existing customer or new to us?"
+   - 2 card "Existing Customer" / "New Customer" có icon, subtitle, chevron
+   - Bấm **Back** → Sheet đóng lại, quay về đúng "Hi there 👋"
+   - Bấm **New Customer** → chuyển sang màn hình WhatsApp (vẫn trong Sheet, không đóng)
+   - Bấm **Continue on WhatsApp** → tab mới mở đúng số, đúng tin nhắn điền sẵn → Sheet đóng lại
 
 ---
 
@@ -157,10 +139,21 @@ https://developers.intercom.com/docs/references/rest-api/api.intercom.io/convers
 
 ```
 .
-├── server.js          # Toàn bộ logic: canvas cho từng bước + xác thực chữ ký
+├── server.js            # 4 webhook: /initialize /submit /sheet /submit-sheet
+├── sheet-template.js     # Toàn bộ HTML/CSS/JS hiển thị trong iframe (Sheet)
 ├── package.json
-├── vercel.json         # Cấu hình deploy Express app dạng Vercel serverless function
+├── vercel.json
 ├── .env.example
 ├── .gitignore
 └── README.md
 ```
+
+## Debug khi có lỗi
+
+- **Sheet không mở / báo lỗi**: mở DevTools → Network → tìm request tới
+  `/sheet`, kiểm tra status code và response có phải HTML hợp lệ không.
+- **"Cannot POST /..."**: kiểm tra lại đúng URL webhook đã điền trong
+  Developer Hub (đủ path `/initialize`, `/submit`, `/submit-sheet`).
+- **Bấm nút trong Sheet không phản hồi**: mở Console trong DevTools khi
+  Sheet đang mở, tìm lỗi liên quan tới `INTERCOM_MESSENGER_SHEET_LIBRARY`
+  (có thể do script thư viện load chậm/lỗi mạng).

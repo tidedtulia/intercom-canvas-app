@@ -1,43 +1,63 @@
 /**
- * Intercom Canvas Kit App - "Choose customer type -> WhatsApp handoff"
+ * Intercom Canvas Kit App (KIEN TRUC SHEETS) - "Choose customer type -> WhatsApp handoff"
  *
- * Luong hoat dong (dung 3 man hinh, khop mockup cua ban):
+ * Khac voi ban truoc (dung Content Components co san: text/list/button), ban
+ * nay dung SHEETS - mo mot iframe voi trang HTML/CSS/JS TU CODE HOAN TOAN,
+ * cho phep khop 100% voi thiet ke (mau nen teal, icon avatar, chevron...).
  *
- *  Man hinh 1 (/initialize - hien ngay khi Home mo):
- *    "Hi there 👋 / How can we help? / [Send us a message]"
+ * Luong hoat dong:
  *
- *  Man hinh 2 (/submit component_id="start" - SAU KHI bam nut o Man hinh 1):
- *    "Welcome! Are you an existing customer or new to us?"
- *    kem 2 lua chon: Existing Customer / New Customer
- *    (Intercom tu dong hien nut back <- de quay ve Man hinh 1, khong can code)
+ *  Man hinh 1 (/initialize - hien ngay khi Home mo, VAN dung Content Component
+ *  don gian vi day chi la 1 dong "Send us a message" tren Home, khong can
+ *  custom nhieu):
+ *    "Hi there wave / How can we help? / [Send us a message]"
+ *    Nut nay co action type "sheet" (KHONG phai "submit") -> mo iframe.
  *
- *  Man hinh 3a (/submit component_id="new_customer"):
- *    Tin nhan + nut "Continue on WhatsApp" (action type "url")
+ *  /sheet (duoc goi khi khach bam nut o Man hinh 1):
+ *    Tra ve 1 trang HTML day du (sheet-template.js), chua toan bo:
+ *      - Man hinh Welcome (chon Existing/New Customer) - style teal khop mockup
+ *      - Man hinh WhatsApp handoff - chuyen doi bang JS thuan, khong reload
+ *    Trang nay dung thu vien messenger-sheet-library de "noi chuyen" nguoc
+ *    lai voi Messenger (dong sheet + gui du lieu ve server qua submitSheet()).
  *
- *  Man hinh 3b (/submit component_id="existing_customer"):
- *    Tin nhan huong dan (xem README ve gioi han + huong nang cap)
+ *  /submit-sheet (duoc goi khi trang HTML trong sheet goi submitSheet()):
+ *    - action "back"                 -> dong sheet, tra ve Man hinh 1 (Hi there)
+ *    - action "existing_customer"    -> dong sheet, hien thong bao huong dan
+ *    - action "new_customer_whatsapp"-> dong sheet, hien thong bao cam on
+ *      (WhatsApp da duoc mo o tab moi tu truoc do, ngay trong file HTML)
  *
- *  Buoc cuoi: khach bam "Continue on WhatsApp" -> trinh duyet/app WhatsApp
- *  mo voi tin nhan duoc dien san.
+ *  /submit (webhook bat buoc phai co theo tai lieu Intercom, dung cho cac
+ *  submit action THONG THUONG - o app nay khong dung toi nhung van phai
+ *  ton tai va tra loi hop le).
  *
- * Tai lieu tham khao:
- *  - Canvas Kit overview:  https://developers.intercom.com/docs/canvas-kit
- *  - List component:       https://developers.intercom.com/docs/references/canvas-kit/interactivecomponents/list
- *  - Button / URL action:  https://developers.intercom.com/docs/references/canvas-kit/interactivecomponents/button
- *  - Signed requests:      https://developers.intercom.com/docs/canvas-kit#signed-notifications
+ * Tai lieu tham khao (da doc full truoc khi code):
+ *  - Build an App using Sheets:
+ *    https://developers.intercom.com/docs/build-an-integration/getting-started/build-an-app-for-your-messenger/sheets-app
+ *  - Sheets flow request/response:
+ *    https://developers.intercom.com/docs/build-an-integration/getting-started/build-an-app-for-your-messenger/sheets-flow
+ *  - Signed requests (cho /initialize, /submit):
+ *    https://developers.intercom.com/docs/canvas-kit#signing-notifications
  */
 
 const express = require("express");
 const bodyParser = require("body-parser");
+const cors = require("cors");
 const crypto = require("crypto");
+const { buildSheetHtml } = require("./sheet-template");
 
 const app = express();
 
-// Dung "verify" callback cua body-parser de giu lai RAW BODY (buffer) truoc
-// khi no bi parse thanh object. Can raw body nay de tinh chu ky HMAC chinh
-// xac - neu dung JSON.stringify(req.body) de tinh lai, ket qua co the khac
-// byte-for-byte voi request goc (thu tu key, khoang trang...), khien viec
-// xac thuc luon that bai ngay ca voi request hop le tu Intercom.
+// ---- Headers bat buoc de sheet (iframe) hoat dong dung -------------------
+app.use(function (req, res, next) {
+  res.setHeader(
+    "Content-Security-Policy",
+    "frame-src 'self' https://intercom-sheets.com"
+  );
+  res.setHeader("X-Requested-With", "XMLHttpRequest");
+  next();
+});
+app.use(cors());
+
 app.use(
   bodyParser.json({
     verify: (req, _res, buf) => {
@@ -45,16 +65,13 @@ app.use(
     },
   })
 );
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // ---- Cau hinh: doi cac gia tri nay theo doanh nghiep cua ban --------------
-const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || "84901234567"; // KHONG co dau '+'
+const WHATSAPP_NUMBER = process.env.WHATSAPP_NUMBER || "84901234567";
 const WHATSAPP_PREFILL_TEXT =
   process.env.WHATSAPP_PREFILL_TEXT ||
   "Hi, I'm a new customer and would like to know more about your services.";
-
-// Client secret cua app, lay o Developer Hub > app cua ban > Basic Info.
-// Neu KHONG set bien nay, server se BO QUA buoc xac thuc chu ky (huu ich khi
-// dev/test local) - nhung PHAI set truoc khi dua len production that.
 const INTERCOM_CLIENT_SECRET = process.env.INTERCOM_CLIENT_SECRET || "";
 
 function buildWhatsAppUrl() {
@@ -62,33 +79,28 @@ function buildWhatsAppUrl() {
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodedText}`;
 }
 
-// ---- Xac thuc chu ky X-Body-Signature tu Intercom -------------------------
-//
-// Intercom ky moi Canvas Kit request bang header X-Body-Signature, tinh
-// bang HMAC-SHA256(raw_json_body, app_client_secret), dang hex.
+function getBaseUrl(req) {
+  if (process.env.APP_BASE_URL) {
+    return process.env.APP_BASE_URL.replace(/\/$/, "");
+  }
+  const protocol = req.hostname === "localhost" ? "http" : "https";
+  return `${protocol}://${req.get("host")}`;
+}
+
 function verifyIntercomSignature(req) {
-  if (!INTERCOM_CLIENT_SECRET) {
-    // Chua cau hinh secret (vi du dang chay local) -> bo qua kiem tra.
-    return true;
-  }
-
+  if (!INTERCOM_CLIENT_SECRET) return true;
   const signature = req.get("X-Body-Signature");
-  if (!signature || !req.rawBody) {
-    return false;
-  }
-
+  if (!signature || !req.rawBody) return false;
   const expected = crypto
     .createHmac("sha256", INTERCOM_CLIENT_SECRET)
     .update(req.rawBody)
     .digest("hex");
-
   try {
     return crypto.timingSafeEqual(
       Buffer.from(expected, "hex"),
       Buffer.from(signature, "hex")
     );
   } catch {
-    // Do dai buffer khac nhau, v.v.
     return false;
   }
 }
@@ -100,33 +112,33 @@ function requireValidIntercomSignature(req, res, next) {
   next();
 }
 
-// ---- Cac "man hinh" (canvas) ----------------------------------------------
+function decodeIntercomUser(encodedUser) {
+  const masterkey = INTERCOM_CLIENT_SECRET;
+  const bData = Buffer.from(encodedUser, "base64");
+  const ivlen = 12;
+  const iv = bData.subarray(0, ivlen);
+  const taglen = 16;
+  const tag = bData.subarray(bData.length - taglen, bData.length);
+  const cipherLen = bData.length - taglen;
+  const cipherText = bData.subarray(ivlen, cipherLen);
 
-// Man hinh 1: man hinh chao mac dinh tren Home, giong mockup buoc 1
-// (Hi there + nut "Send us a message"). Bam nut nay moi chuyen sang Man hinh 2.
-function greetingCanvas() {
+  const hash = crypto.createHash("sha256").update(masterkey);
+  const key = Buffer.from(hash.digest("binary"), "binary");
+
+  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
+  decipher.setAuthTag(tag);
+
+  let decrypted = decipher.update(cipherText, "binary", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
+
+function greetingCanvas(req) {
+  const sheetUrl = `${getBaseUrl(req)}/sheet`;
   return {
     canvas: {
       content: {
         components: [
-          {
-            type: "text",
-            id: "greeting_text",
-            text: "Hi there 👋",
-            align: "left",
-            style: "header",
-          },
-          {
-            type: "text",
-            id: "greeting_subtext",
-            text: "How can we help?",
-            align: "left",
-            style: "paragraph",
-          },
-          {
-            type: "spacer",
-            size: "m",
-          },
           {
             type: "list",
             id: "start_list",
@@ -136,7 +148,7 @@ function greetingCanvas() {
                 id: "start",
                 title: "Send us a message",
                 subtitle: "We typically reply in under 5 minutes",
-                action: { type: "submit" },
+                action: { type: "sheet", url: sheetUrl },
               },
             ],
           },
@@ -146,165 +158,97 @@ function greetingCanvas() {
   };
 }
 
-// Man hinh 2: hoi loai khach hang (chi hien SAU KHI khach bam nut o Man hinh 1)
-//
-// LUU Y QUAN TRONG: Canvas Kit KHONG tu dong hien nut back khi chuyen canvas.
-// Theo dung huong dan chinh thuc cua Intercom (Canvas Kit best practices),
-// app phai TU THEM 1 button voi label "Back", style "link" - do la ly do
-// component "back_to_greeting" duoc dat o day.
-function welcomeCanvas() {
-  return {
-    canvas: {
-      content: {
-        components: [
-          {
-            type: "button",
-            id: "back_to_greeting",
-            label: "Back",
-            style: "link",
-            action: { type: "submit" },
-          },
-          {
-            type: "text",
-            id: "welcome_text",
-            text: "Welcome! 👋 Are you an existing customer or new to us?",
-            align: "left",
-            style: "header",
-          },
-          {
-            type: "list",
-            id: "customer_type_list",
-            items: [
-              {
-                type: "item",
-                id: "existing_customer",
-                title: "Existing Customer",
-                subtitle: "I'm an existing customer and need support.",
-                action: { type: "submit" },
-              },
-              {
-                type: "item",
-                id: "new_customer",
-                title: "New Customer",
-                subtitle: "I'm new and would like to learn more.",
-                action: { type: "submit" },
-              },
-            ],
-          },
-        ],
-      },
-    },
-  };
-}
-
-// Man hinh 3a: khach hang moi -> dan sang WhatsApp
-function whatsAppHandoffCanvas() {
-  return {
-    canvas: {
-      content: {
-        components: [
-          {
-            type: "text",
-            id: "handoff_text",
-            text: "Great! 🎉 To help you better, our team will continue this conversation on WhatsApp.",
-            align: "left",
-            style: "header",
-          },
-          {
-            type: "text",
-            id: "handoff_subtext",
-            text: "Your information is secure and will only be used to assist you.",
-            align: "left",
-            style: "muted",
-          },
-          {
-            type: "button",
-            id: "continue_whatsapp_button",
-            label: "Continue on WhatsApp",
-            style: "primary",
-            action: {
-              type: "url",
-              url: buildWhatsAppUrl(),
+function afterSheetCanvas(action) {
+  if (action === "existing_customer") {
+    return {
+      canvas: {
+        content: {
+          components: [
+            {
+              type: "text",
+              id: "existing_text",
+              text: "Thanks! \ud83d\ude4c Our support team is ready to help \u2014 please type your question below and we'll take it from there.",
+              align: "left",
+              style: "header",
             },
-          },
-        ],
+          ],
+        },
       },
-    },
-  };
+    };
+  }
+
+  if (action === "new_customer_whatsapp") {
+    return {
+      canvas: {
+        content: {
+          components: [
+            {
+              type: "text",
+              id: "whatsapp_done_text",
+              text: "We've opened WhatsApp for you in a new tab. See you there! \ud83d\udc4b",
+              align: "left",
+              style: "header",
+            },
+          ],
+        },
+      },
+    };
+  }
+
+  return null;
 }
 
-// Man hinh 3b: khach hang cu -> huong dan lien he doi ho tro
-// LUU Y: Canvas Kit khong co action de "mo mot cuoc hoi thoai that" ngay
-// trong app. Cach don gian nhat la huong dan khach quay lai va bam nut
-// "Send us a message" mac dinh (van con tren Home). Xem README de biet
-// them lua chon nang cao hon (goi Intercom API de tao conversation that).
-function existingCustomerCanvas() {
-  return {
-    canvas: {
-      content: {
-        components: [
-          {
-            type: "text",
-            id: "existing_text",
-            text: "Thanks! 🙌 Our support team is ready to help — please type your question below and we'll take it from there.",
-            align: "left",
-            style: "header",
-          },
-        ],
-      },
-    },
-  };
-}
-
-// ---- Webhook endpoints ------------------------------------------------
-
-// Duoc goi khi app duoc them vao Messenger Home / hien thi lan dau.
-// Luon tra ve Man hinh 1 (Hi there) - GIONG HET mockup buoc 1.
 app.post("/initialize", requireValidIntercomSignature, (req, res) => {
-  res.json(greetingCanvas());
+  res.json(greetingCanvas(req));
 });
 
-// Duoc goi moi khi khach bam vao 1 component co action "submit"
 app.post("/submit", requireValidIntercomSignature, (req, res) => {
-  const componentId = req.body.component_id;
-
-  // Khach bam nut "Back" o Man hinh 2 -> quay lai Man hinh 1.
-  if (componentId === "back_to_greeting") {
-    return res.json(greetingCanvas());
-  }
-
-  // Khach bam nut "Send us a message" o Man hinh 1 -> chuyen sang Man hinh 2.
-  if (componentId === "start") {
-    return res.json(welcomeCanvas());
-  }
-
-  if (componentId === "new_customer") {
-    return res.json(whatsAppHandoffCanvas());
-  }
-
-  if (componentId === "existing_customer") {
-    return res.json(existingCustomerCanvas());
-  }
-
-  // Mac dinh (vi du component_id la khac hoac rong): quay ve Man hinh 1
-  return res.json(greetingCanvas());
+  res.json({ canvas: req.body.current_canvas });
 });
 
-// Health check - kiem tra server con song khong (Intercom khong goi route nay)
+app.post("/sheet", (req, res) => {
+  try {
+    if (INTERCOM_CLIENT_SECRET && req.body && req.body.intercom_data) {
+      const parsed = JSON.parse(req.body.intercom_data);
+      if (parsed.user) {
+        decodeIntercomUser(parsed.user);
+      }
+    }
+  } catch (err) {
+    console.warn("Khong giai ma duoc intercom_data.user (bo qua, khong chan request):", err.message);
+  }
+
+  const waLink = buildWhatsAppUrl();
+  const html = buildSheetHtml({ waLink });
+  res.type("html").send(html);
+});
+
+app.post("/submit-sheet", (req, res) => {
+  const action = req.body?.sheet_values?.action;
+
+  if (action === "back") {
+    return res.json(greetingCanvas(req));
+  }
+
+  const canvas = afterSheetCanvas(action);
+  if (canvas) {
+    return res.json(canvas);
+  }
+
+  return res.json(greetingCanvas(req));
+});
+
 app.get("/", (req, res) => {
   res.type("text/plain").send("Intercom Canvas Kit app is running.");
 });
 
-// Chi thuc su "listen" khi chay local (node server.js / npm start).
-// Tren Vercel, file nay duoc import nhu 1 serverless function thong qua
-// module.exports = app; ben duoi - Vercel tu goi app, khong can listen().
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {
     console.log(`Canvas Kit app dang chay tai http://localhost:${PORT}`);
     if (!INTERCOM_CLIENT_SECRET) {
       console.log(
-        "⚠️  INTERCOM_CLIENT_SECRET chua duoc set - dang bo qua xac thuc chu ky (chi nen dung khi dev local)."
+        "WARNING: INTERCOM_CLIENT_SECRET chua duoc set - dang bo qua xac thuc chu ky (chi nen dung khi dev local)."
       );
     }
   });
