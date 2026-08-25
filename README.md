@@ -1,19 +1,28 @@
 # Intercom Canvas Kit App — Welcome flow + WhatsApp handoff
 
-Custom Messenger App cho Intercom, tái tạo đúng 4 bước trong thiết kế của bạn:
+Custom Messenger App cho Intercom, tái tạo đúng luồng 3 màn hình trong thiết kế của bạn:
 
-1. Khách thấy card app trên Messenger **Home**
-2. Bấm vào → hiện **"Welcome! Are you an existing customer or new to us?"** với 2 lựa chọn
-3. Chọn **New Customer** → hiện nút **"Continue on WhatsApp"**
-4. Bấm nút đó → WhatsApp mở với tin nhắn được điền sẵn
+1. **Màn hình 1** (`/initialize`, hiện ngay khi Home mở): **"Hi there 👋 /
+   How can we help? / [Send us a message]"**
+2. **Màn hình 2** (`/submit`, SAU KHI bấm nút ở Màn hình 1): **"Welcome! Are
+   you an existing customer or new to us?"** với 2 lựa chọn. Intercom tự
+   động hiện nút back (←) để quay lại Màn hình 1 — không cần code thêm.
+3. **Màn hình 3a** (chọn New Customer) → hiện nút **"Continue on WhatsApp"**
+   → bấm vào → WhatsApp mở với tin nhắn được điền sẵn.
+   **Màn hình 3b** (chọn Existing Customer) → hiện thông báo hướng dẫn.
 
 App có sẵn cơ chế **xác thực chữ ký request** (`X-Body-Signature`) để đảm bảo
 chỉ Intercom mới gọi được webhook của bạn — bật tự động khi bạn cấu hình
 `INTERCOM_CLIENT_SECRET`.
 
+> **Quan trọng:** vì app này đã tự có Màn hình 1 (Hi there + nút "Send us a
+> message") làm điểm bắt đầu, bạn nên **gỡ card "New conversation" mặc định**
+> khỏi Home (Settings → Messenger → Widget → Customize Home with apps) để
+> tránh hiện 2 nút "Send us a message" trùng lặp cạnh nhau.
+
 > **Giới hạn cần biết:** Canvas Kit không có action "mở một cuộc hội thoại
-> thật". Nhánh "Existing Customer" hiện chỉ hiện thông báo hướng dẫn khách
-> bấm "Send us a message" mặc định. Xem mục **6. Nâng cấp thêm** nếu muốn tự
+> thật". Nhánh "Existing Customer" hiện chỉ hiện thông báo hướng dẫn, không
+> tự mở được conversation thật. Xem mục **8. Nâng cấp thêm** nếu muốn tự
 > động tạo hẳn một conversation thật.
 
 ---

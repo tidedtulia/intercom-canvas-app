@@ -1,16 +1,24 @@
 /**
  * Intercom Canvas Kit App - "Choose customer type -> WhatsApp handoff"
  *
- * Luong hoat dong (giong mockup 4 buoc cua ban):
- *  1. Khach bam card app tren Messenger Home
- *  2. /initialize  -> hien "Welcome! Are you an existing customer or new to us?"
- *     kem 2 lua chon: Existing Customer / New Customer
- *  3. /submit (component_id = "new_customer")
- *       -> hien tin nhan + nut "Continue on WhatsApp" (action type "url")
- *     /submit (component_id = "existing_customer")
- *       -> hien tin nhan huong dan (xem README ve gioi han + huong nang cap)
- *  4. Khach bam "Continue on WhatsApp" -> trinh duyet/app WhatsApp mo voi
- *     tin nhan duoc dien san.
+ * Luong hoat dong (dung 3 man hinh, khop mockup cua ban):
+ *
+ *  Man hinh 1 (/initialize - hien ngay khi Home mo):
+ *    "Hi there 👋 / How can we help? / [Send us a message]"
+ *
+ *  Man hinh 2 (/submit component_id="start" - SAU KHI bam nut o Man hinh 1):
+ *    "Welcome! Are you an existing customer or new to us?"
+ *    kem 2 lua chon: Existing Customer / New Customer
+ *    (Intercom tu dong hien nut back <- de quay ve Man hinh 1, khong can code)
+ *
+ *  Man hinh 3a (/submit component_id="new_customer"):
+ *    Tin nhan + nut "Continue on WhatsApp" (action type "url")
+ *
+ *  Man hinh 3b (/submit component_id="existing_customer"):
+ *    Tin nhan huong dan (xem README ve gioi han + huong nang cap)
+ *
+ *  Buoc cuoi: khach bam "Continue on WhatsApp" -> trinh duyet/app WhatsApp
+ *  mo voi tin nhan duoc dien san.
  *
  * Tai lieu tham khao:
  *  - Canvas Kit overview:  https://developers.intercom.com/docs/canvas-kit
@@ -94,16 +102,66 @@ function requireValidIntercomSignature(req, res, next) {
 
 // ---- Cac "man hinh" (canvas) ----------------------------------------------
 
-// Man hinh 2: hoi loai khach hang
-function welcomeCanvas() {
+// Man hinh 1: man hinh chao mac dinh tren Home, giong mockup buoc 1
+// (Hi there + nut "Send us a message"). Bam nut nay moi chuyen sang Man hinh 2.
+function greetingCanvas() {
   return {
     canvas: {
       content: {
         components: [
           {
             type: "text",
+            id: "greeting_text",
+            text: "Hi there 👋",
+            align: "left",
+            style: "header",
+          },
+          {
+            type: "text",
+            id: "greeting_subtext",
+            text: "How can we help?",
+            align: "left",
+            style: "paragraph",
+          },
+          {
+            type: "spacer",
+            size: "m",
+          },
+          {
+            type: "button",
+            id: "start",
+            label: "Send us a message",
+            style: "primary",
+            action: { type: "submit" },
+          },
+        ],
+      },
+    },
+  };
+}
+
+// Man hinh 2: hoi loai khach hang (chi hien SAU KHI khach bam nut o Man hinh 1)
+//
+// LUU Y QUAN TRONG: Canvas Kit KHONG tu dong hien nut back khi chuyen canvas.
+// Theo dung huong dan chinh thuc cua Intercom (Canvas Kit best practices),
+// app phai TU THEM 1 button voi label "Back", style "link" - do la ly do
+// component "back_to_greeting" duoc dat o day.
+function welcomeCanvas() {
+  return {
+    canvas: {
+      content: {
+        components: [
+          {
+            type: "button",
+            id: "back_to_greeting",
+            label: "Back",
+            style: "link",
+            action: { type: "submit" },
+          },
+          {
+            type: "text",
             id: "welcome_text",
-            text: "**Welcome!** 👋\nAre you an existing customer or new to us?",
+            text: "Welcome! 👋 Are you an existing customer or new to us?",
             align: "left",
             style: "header",
           },
@@ -142,7 +200,7 @@ function whatsAppHandoffCanvas() {
           {
             type: "text",
             id: "handoff_text",
-            text: "**Great!** 🎉\nTo help you better, our team will continue this conversation on WhatsApp.",
+            text: "Great! 🎉 To help you better, our team will continue this conversation on WhatsApp.",
             align: "left",
             style: "header",
           },
@@ -182,7 +240,7 @@ function existingCustomerCanvas() {
           {
             type: "text",
             id: "existing_text",
-            text: "**Thanks!** 🙌\nOur support team is ready to help — please tap **Send us a message** on the Home screen to start chatting with us.",
+            text: "Thanks! 🙌 Our support team is ready to help — please type your question below and we'll take it from there.",
             align: "left",
             style: "header",
           },
@@ -194,14 +252,25 @@ function existingCustomerCanvas() {
 
 // ---- Webhook endpoints ------------------------------------------------
 
-// Duoc goi khi app duoc them vao Messenger Home / hien thi lan dau
+// Duoc goi khi app duoc them vao Messenger Home / hien thi lan dau.
+// Luon tra ve Man hinh 1 (Hi there) - GIONG HET mockup buoc 1.
 app.post("/initialize", requireValidIntercomSignature, (req, res) => {
-  res.json(welcomeCanvas());
+  res.json(greetingCanvas());
 });
 
 // Duoc goi moi khi khach bam vao 1 component co action "submit"
 app.post("/submit", requireValidIntercomSignature, (req, res) => {
   const componentId = req.body.component_id;
+
+  // Khach bam nut "Back" o Man hinh 2 -> quay lai Man hinh 1.
+  if (componentId === "back_to_greeting") {
+    return res.json(greetingCanvas());
+  }
+
+  // Khach bam nut "Send us a message" o Man hinh 1 -> chuyen sang Man hinh 2.
+  if (componentId === "start") {
+    return res.json(welcomeCanvas());
+  }
 
   if (componentId === "new_customer") {
     return res.json(whatsAppHandoffCanvas());
@@ -211,8 +280,8 @@ app.post("/submit", requireValidIntercomSignature, (req, res) => {
     return res.json(existingCustomerCanvas());
   }
 
-  // Mac dinh: quay ve man hinh Welcome
-  return res.json(welcomeCanvas());
+  // Mac dinh (vi du component_id la khac hoac rong): quay ve Man hinh 1
+  return res.json(greetingCanvas());
 });
 
 // Health check - kiem tra server con song khong (Intercom khong goi route nay)
