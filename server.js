@@ -184,11 +184,14 @@ async function createRealConversation(req) {
     return false;
   }
 
-  // "contact" trong Intercom co the la kieu "contact" chung chung, nhung
-  // API /conversations chi chap nhan "user" hoac "lead" cho truong from.type.
-  // Neu type la "contact", thu doi thanh "lead" (truong hop pho bien cho
-  // khach an danh chua tung nhan dang).
-  const fromType = source.type === "contact" ? "lead" : source.type;
+  // Theo tai lieu chinh thuc cua Intercom, truong "from.type" cua API
+  // /conversations CHI chap nhan "user" hoac "contact" - khong co "visitor"
+  // hay "lead". Voi khach da dinh danh (user_id that), dung "user"; con lai
+  // (visitor an danh, lead...) dung "contact" kem dung id cua ho.
+  // Xem: "You can also send a message from a visitor by specifying their
+  // user_id or id value in the from field, along with a type field value
+  // of contact." - developers.intercom.com/docs/references/2.2/rest-api/conversations/create-a-conversation
+  const fromType = source.type === "user" ? "user" : "contact";
 
   try {
     const response = await fetch("https://api.intercom.io/conversations", {
