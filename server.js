@@ -224,22 +224,58 @@ app.post("/sheet", (req, res) => {
 });
 
 app.post("/submit-sheet", (req, res) => {
-  const action = req.body?.sheet_values?.action;
+  try {
+    console.log("[/submit-sheet] raw body:", JSON.stringify(req.body));
 
-  if (action === "back") {
-    return res.json(greetingCanvas(req));
+    // sheet_values thuong la 1 object da duoc parse san (theo tai lieu chinh
+    // thuc), nhung de an toan, ho tro luon truong hop no den duoi dang
+    // CHUOI JSON (vi du neu Content-Type khac mong doi).
+    let sheetValues = req.body?.sheet_values;
+    if (typeof sheetValues === "string") {
+      try {
+        sheetValues = JSON.parse(sheetValues);
+      } catch {
+        sheetValues = {};
+      }
+    }
+
+    const action = sheetValues?.action;
+    console.log("[/submit-sheet] action nhan duoc:", action);
+
+    if (action === "back") {
+      return res.status(200).json(greetingCanvas(req));
+    }
+
+    const canvas = afterSheetCanvas(action);
+    if (canvas) {
+      return res.status(200).json(canvas);
+    }
+
+    return res.status(200).json(greetingCanvas(req));
+  } catch (err) {
+    // Du co loi gi xay ra, VAN tra ve 1 canvas hop le (status 200) thay vi
+    // de server crash / tra ve trang loi HTML mac dinh cua Express - day la
+    // nguyen nhan pho bien nhat gay ra "third_party_request_error" ben phia
+    // Intercom.
+    console.error("[/submit-sheet] Loi khong mong muon:", err);
+    return res.status(200).json(greetingCanvas(req));
   }
-
-  const canvas = afterSheetCanvas(action);
-  if (canvas) {
-    return res.json(canvas);
-  }
-
-  return res.json(greetingCanvas(req));
 });
 
 app.get("/", (req, res) => {
   res.type("text/plain").send("Intercom Canvas Kit app is running.");
+});
+
+// ---- Global error handler ---------------------------------------------
+// Bat toan bo loi chua duoc xu ly (vi du: body-parser gap JSON khong hop
+// le). Neu khong co handler nay, Express se tra ve trang loi HTML mac dinh
+// - Intercom se bao "third_party_request_error" vi no can nhan JSON.
+app.use((err, req, res, next) => {
+  console.error("[Global error handler]", err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(200).json(greetingCanvas(req));
 });
 
 if (require.main === module) {

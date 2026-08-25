@@ -133,14 +133,11 @@ function buildSheetHtml({ waLink }) {
 <body>
 
   <!-- MAN HINH 1: Welcome - chon loai khach hang -->
+  <!-- KHONG can nut Back o day nua - Intercom da tu dong them mui ten "<"
+       o thanh header rieng cua Sheet, bam vao no da tu dong dong Sheet va
+       quay ve Home, khong can tu code them. -->
   <div id="screen-welcome" class="screen active">
     <div class="header">
-      <button class="back-btn" id="back-button" type="button">
-        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        Back
-      </button>
       <h1>Welcome! 👋</h1>
       <p>Are you an existing customer or new to us?</p>
     </div>
@@ -199,10 +196,8 @@ function buildSheetHtml({ waLink }) {
       document.getElementById(id).classList.add("active");
     }
 
-    // Nut Back o Man hinh Welcome -> dong sheet, quay ve Man hinh 1 (Hi there)
-    document.getElementById("back-button").addEventListener("click", function () {
-      INTERCOM_MESSENGER_SHEET_LIBRARY.submitSheet({ action: "back" });
-    });
+    // Nut Back o Man hinh Welcome DA BI XOA - da co mui ten "<" native cua
+    // Intercom o thanh header rieng cua Sheet, tu dong dong sheet + ve Home.
 
     // Bam "Existing Customer" -> dong sheet, bao server hien thong bao huong dan
     document.getElementById("existing-customer-card").addEventListener("click", function () {
