@@ -193,7 +193,7 @@ async function createRealConversation(req) {
   // of contact." - developers.intercom.com/docs/references/2.2/rest-api/conversations/create-a-conversation
   const fromType = source.type === "user" ? "user" : "contact";
 
-  try {
+  async function callCreateConversation(type) {
     const response = await fetch("https://api.intercom.io/conversations", {
       method: "POST",
       headers: {
@@ -203,23 +203,35 @@ async function createRealConversation(req) {
         "Intercom-Version": "2.11",
       },
       body: JSON.stringify({
-        from: { type: fromType, id: source.id },
+        from: { type, id: source.id },
         body: "I'm an existing customer and need support.",
       }),
     });
 
     const responseText = await response.text();
     console.log(
-      "[createRealConversation] Intercom API response:",
+      "[createRealConversation] Intercom API response (from.type=" + type + "):",
       response.status,
       responseText
     );
 
-    if (!response.ok) {
-      return false;
+    return response.ok;
+  }
+
+  try {
+    if (await callCreateConversation(fromType)) {
+      return true;
     }
 
-    return true;
+    // Mot so workspace tra ve 404 "User Not Found" voi from.type "contact"
+    // du day la gia tri chinh thuc theo tai lieu Intercom cho visitor/lead -
+    // thu lai voi "user" nhu mot fallback (da ghi nhan tu cong dong Intercom
+    // la co the fix duoc loi nay trong mot so truong hop).
+    if (fromType !== "user" && (await callCreateConversation("user"))) {
+      return true;
+    }
+
+    return false;
   } catch (err) {
     console.error("[createRealConversation] Loi khi goi API:", err);
     return false;
