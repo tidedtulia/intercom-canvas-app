@@ -199,9 +199,23 @@ function buildSheetHtml({ waLink }) {
     // Nut Back o Man hinh Welcome DA BI XOA - da co mui ten "<" native cua
     // Intercom o thanh header rieng cua Sheet, tu dong dong sheet + ve Home.
 
-    // Bam "Existing Customer" -> dong sheet, bao server hien thong bao huong dan
+    // Bam "Existing Customer" -> KHONG dung submitSheet (dong Sheet luon quay
+    // ve Home, gioi han cua Canvas Kit Sheets). Thay vao do, gui postMessage
+    // len window.top (chinh la trang chu dang nhung Messenger that, vi du
+    // intercom-frontend/index.html) de trang do tu goi Intercom("showNewMessage")
+    // - API chinh thuc mo dung man composer that. window.top luon tro dung
+    // toi cua so ngoai cung du Sheet dang long sau bao nhieu iframe, va
+    // postMessage hoat dong xuyen duoc cross-origin nen day la cach duy nhat
+    // Sheet "goi" duoc Intercom() cua trang chu.
     document.getElementById("existing-customer-card").addEventListener("click", function () {
-      INTERCOM_MESSENGER_SHEET_LIBRARY.submitSheet({ action: "existing_customer" });
+      window.top.postMessage(
+        {
+          source: "joblogic-sheet",
+          action: "showNewMessage",
+          text: "I'm an existing customer and need support.",
+        },
+        "*"
+      );
     });
 
     // Bam "New Customer" -> chuyen sang man hinh WhatsApp NGAY TRONG SHEET
