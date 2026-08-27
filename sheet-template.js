@@ -103,14 +103,39 @@ function buildSheetHtml({ waLink }) {
 
   /* ---- Man hinh WhatsApp handoff ---- */
   .whatsapp-body { padding: 24px 20px; }
-  .whatsapp-btn {
+
+  .wa-preview-bubble {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: #e8f9ee;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+  }
+  .wa-preview-icon {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #25d366;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .wa-preview-icon svg { width: 18px; height: 18px; fill: #ffffff; }
+  .wa-preview-bubble p {
+    margin: 0;
+    font-size: 14px;
+    color: #1a1a2e;
+  }
+
+  .whatsapp-btn, .intercom-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
     width: 100%;
-    background: #25d366;
-    color: #ffffff;
     border: none;
     border-radius: 10px;
     padding: 14px 20px;
@@ -119,8 +144,13 @@ function buildSheetHtml({ waLink }) {
     cursor: pointer;
     margin-top: 8px;
   }
+  .whatsapp-btn { background: #25d366; color: #ffffff; }
   .whatsapp-btn:hover { background: #1fbd5a; }
   .whatsapp-btn svg { width: 20px; height: 20px; }
+
+  .intercom-btn { background: #0a6ebd; color: #ffffff; }
+  .intercom-btn:hover { background: #0960a5; }
+  .intercom-btn svg { width: 20px; height: 20px; fill: #ffffff; }
 
   .privacy-note {
     text-align: center;
@@ -174,12 +204,27 @@ function buildSheetHtml({ waLink }) {
       <p>To help you better, our team will continue this conversation on WhatsApp.</p>
     </div>
     <div class="whatsapp-body">
+      <div class="wa-preview-bubble">
+        <div class="wa-preview-icon">
+          <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5s-.6-1.5-.9-2c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.6.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3z"/>
+            <path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.6 1.4 5.1L2 22l5.1-1.3C8.6 21.5 10.3 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18c-1.5 0-3-.4-4.3-1.2l-.3-.2-3.2.8.9-3.1-.2-.3C4.2 14.6 3.8 13.3 3.8 12 3.8 7.5 7.5 3.8 12 3.8s8.2 3.7 8.2 8.2-3.7 8.2-8.2 8.2z"/>
+          </svg>
+        </div>
+        <p>You'll be chatting with our team on WhatsApp where we can assist you faster.</p>
+      </div>
       <button class="whatsapp-btn" id="whatsapp-button" type="button">
         <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
           <path d="M17.5 14.4c-.3-.1-1.7-.8-1.9-.9-.3-.1-.4-.1-.6.1-.2.3-.7.9-.8 1-.1.2-.3.2-.6.1-.3-.1-1.2-.4-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5s-.6-1.5-.9-2c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.3.3-1 1-1 2.4s1.1 2.8 1.2 3c.1.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.6.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3z"/>
           <path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.6 1.4 5.1L2 22l5.1-1.3C8.6 21.5 10.3 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18c-1.5 0-3-.4-4.3-1.2l-.3-.2-3.2.8.9-3.1-.2-.3C4.2 14.6 3.8 13.3 3.8 12 3.8 7.5 7.5 3.8 12 3.8s8.2 3.7 8.2 8.2-3.7 8.2-8.2 8.2z"/>
         </svg>
         Continue on WhatsApp
+      </button>
+      <button class="intercom-btn" id="intercom-button" type="button">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2C6.48 2 2 6.03 2 11c0 2.4 1.05 4.58 2.78 6.19L4 22l5.09-1.64C10 20.78 10.98 21 12 21c5.52 0 10-4.03 10-9s-4.48-10-10-10z"/>
+        </svg>
+        Continue on Intercom
       </button>
       <p class="privacy-note">Your information is secure and will only be used to assist you.</p>
     </div>
@@ -212,7 +257,7 @@ function buildSheetHtml({ waLink }) {
         {
           source: "joblogic-sheet",
           action: "showNewMessage",
-          text: "I'm an existing customer and need support.",
+          text: "",
         },
         "*"
       );
@@ -233,6 +278,19 @@ function buildSheetHtml({ waLink }) {
     document.getElementById("whatsapp-button").addEventListener("click", function () {
       window.open(waLink, "_blank");
       INTERCOM_MESSENGER_SHEET_LIBRARY.submitSheet({ action: "new_customer_whatsapp" });
+    });
+
+    // Bam "Continue on Intercom" -> behavior giong het "Existing Customer":
+    // gui postMessage len window.top de trang chu tu goi Intercom("showNewMessage").
+    document.getElementById("intercom-button").addEventListener("click", function () {
+      window.top.postMessage(
+        {
+          source: "joblogic-sheet",
+          action: "showNewMessage",
+          text: "",
+        },
+        "*"
+      );
     });
   });
 </script>
