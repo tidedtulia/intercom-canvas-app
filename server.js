@@ -20,9 +20,14 @@
  *    Trang nay dung thu vien messenger-sheet-library de "noi chuyen" nguoc
  *    lai voi Messenger (dong sheet + gui du lieu ve server qua submitSheet()).
  *
+ *    Nut "Existing Customer" va "Continue on Intercom" KHONG dung submitSheet
+ *    - vi dong Sheet luon bi Messenger dieu huong ve Home (gioi han platform,
+ *    khong sua duoc tu server). Thay vao do, chung gui window.top.postMessage()
+ *    de trang chu (vi du intercom-frontend/index.html) tu goi
+ *    Intercom("showNewMessage") - API chinh thuc mo dung composer that.
+ *
  *  /submit-sheet (duoc goi khi trang HTML trong sheet goi submitSheet()):
  *    - action "back"                 -> dong sheet, tra ve Man hinh 1 (Hi there)
- *    - action "existing_customer"    -> dong sheet, hien thong bao huong dan
  *    - action "new_customer_whatsapp"-> dong sheet, hien thong bao cam on
  *      (WhatsApp da duoc mo o tab moi tu truoc do, ngay trong file HTML)
  *
@@ -143,101 +148,6 @@ function greetingCanvas(req) {
   };
 }
 
-const INTERCOM_ACCESS_TOKEN = process.env.INTERCOM_ACCESS_TOKEN || "";
-
-// Goi Intercom REST API de tao 1 conversation THAT, gan voi dung contact
-// dang tuong tac (se hien trong Inbox, teammate co the tra loi/assign).
-// Tai lieu: https://developers.intercom.com/docs/references/rest-api/api.intercom.io/conversations/createconversation
-//
-// Neu KHONG cau hinh INTERCOM_ACCESS_TOKEN, hoac API tra ve loi (vi du app
-// chua duoc cap quyen "Conversations"), ham nay tra ve false va noi goi se
-// tu dong fallback sang thong bao don gian - KHONG lam app bi crash/loi.
-async function createRealConversation(req) {
-  if (!INTERCOM_ACCESS_TOKEN) {
-    console.log("[createRealConversation] Bo qua: chua co INTERCOM_ACCESS_TOKEN");
-    return false;
-  }
-
-  // Log toan bo de xem chinh xac Intercom gui field nao that su.
-  console.log(
-    "[createRealConversation] req.body.customer:",
-    JSON.stringify(req.body?.customer)
-  );
-  console.log(
-    "[createRealConversation] req.body.contact:",
-    JSON.stringify(req.body?.contact)
-  );
-
-  // Uu tien "customer" (thuong la user/lead thuc su co the nhan tin nhan),
-  // fallback sang "contact" neu "customer" khong co hoac thieu field.
-  const source =
-    req.body?.customer?.id && req.body?.customer?.type
-      ? req.body.customer
-      : req.body?.contact?.id && req.body?.contact?.type
-      ? req.body.contact
-      : null;
-
-  if (!source) {
-    console.warn(
-      "[createRealConversation] Khong tim thay customer/contact hop le trong request - bo qua tao conversation."
-    );
-    return false;
-  }
-
-  // Theo tai lieu chinh thuc cua Intercom, truong "from.type" cua API
-  // /conversations CHI chap nhan "user" hoac "contact" - khong co "visitor"
-  // hay "lead". Voi khach da dinh danh (user_id that), dung "user"; con lai
-  // (visitor an danh, lead...) dung "contact" kem dung id cua ho.
-  // Xem: "You can also send a message from a visitor by specifying their
-  // user_id or id value in the from field, along with a type field value
-  // of contact." - developers.intercom.com/docs/references/2.2/rest-api/conversations/create-a-conversation
-  const fromType = source.type === "user" ? "user" : "contact";
-
-  async function callCreateConversation(type) {
-    const response = await fetch("https://api.intercom.io/conversations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${INTERCOM_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "Intercom-Version": "2.11",
-      },
-      body: JSON.stringify({
-        from: { type, id: source.id },
-        body: "I'm an existing customer and need support.",
-      }),
-    });
-
-    const responseText = await response.text();
-    console.log(
-      "[createRealConversation] Intercom API response (from.type=" + type + "):",
-      response.status,
-      responseText
-    );
-
-    return response.ok;
-  }
-
-  try {
-    if (await callCreateConversation(fromType)) {
-      return true;
-    }
-
-    // Mot so workspace tra ve 404 "User Not Found" voi from.type "contact"
-    // du day la gia tri chinh thuc theo tai lieu Intercom cho visitor/lead -
-    // thu lai voi "user" nhu mot fallback (da ghi nhan tu cong dong Intercom
-    // la co the fix duoc loi nay trong mot so truong hop).
-    if (fromType !== "user" && (await callCreateConversation("user"))) {
-      return true;
-    }
-
-    return false;
-  } catch (err) {
-    console.error("[createRealConversation] Loi khi goi API:", err);
-    return false;
-  }
-}
-
 // Component "Send us a message" dung chung, de nguoi dung luon co the bam
 // lai tu dau ngay ca sau khi da xem xong thong bao ket qua.
 function startListComponent(req) {
@@ -258,30 +168,6 @@ function startListComponent(req) {
 }
 
 async function afterSheetCanvas(action, req) {
-  if (action === "existing_customer") {
-    const created = await createRealConversation(req);
-
-    return {
-      canvas: {
-        content: {
-          components: [
-            {
-              type: "text",
-              id: "existing_text",
-              text: created
-                ? "Thanks! \ud83d\ude4c We've started a conversation for you \u2014 check the Messages tab, our team will reply shortly."
-                : "Thanks! \ud83d\ude4c Our support team is ready to help \u2014 please type your question below and we'll take it from there.",
-              align: "left",
-              style: "header",
-            },
-            { type: "spacer", size: "m" },
-            startListComponent(req),
-          ],
-        },
-      },
-    };
-  }
-
   if (action === "new_customer_whatsapp") {
     return {
       canvas: {

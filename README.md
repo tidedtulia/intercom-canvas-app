@@ -18,9 +18,15 @@ bởi các component có sẵn của Canvas Kit nữa.
 3. **`/submit-sheet`** — được gọi khi trang HTML trong Sheet gọi
    `INTERCOM_MESSENGER_SHEET_LIBRARY.submitSheet(...)`:
    - `action: "back"` → đóng Sheet, quay về Màn hình 1 (Hi there)
-   - `action: "existing_customer"` → đóng Sheet, hiện thông báo hướng dẫn
    - `action: "new_customer_whatsapp"` → đóng Sheet, hiện thông báo cảm ơn
      (WhatsApp đã được mở ở tab mới từ trước đó, ngay trong file HTML)
+
+   Nút **"Existing Customer"** và **"Continue on Intercom"** KHÔNG dùng
+   `submitSheet` — vì đóng Sheet luôn bị Messenger điều hướng về Home (giới
+   hạn platform). Thay vào đó, chúng gửi `window.top.postMessage(...)` để
+   trang chủ (ví dụ `intercom-frontend/index.html`) tự gọi
+   `Intercom("showNewMessage")` — API chính thức mở đúng màn composer thật,
+   trong khi vẫn ở lại đúng conversation.
 
 > **Vì sao đổi sang Sheets?** Cách cũ (Content Components: text/list/button)
 > không cho phép tùy chỉnh màu nền, icon, bo góc... Sheets cho toàn quyền
@@ -148,28 +154,7 @@ git push -u origin main
 └── README.md
 ```
 
-## 8. (Tùy chọn) Tự động tạo conversation thật cho "Existing Customer"
-
-Mặc định, khi khách chọn "Existing Customer", app chỉ hiện thông báo hướng
-dẫn họ tự gõ câu hỏi. Nếu muốn app **tự động tạo một conversation thật**
-(hiện ngay trong Inbox, teammate xem/trả lời được), làm theo các bước sau:
-
-1. developers.intercom.com → app của bạn → **Test and publish → Your workspaces**.
-2. Ở dòng workspace của bạn, bấm icon con mắt 👁 để hiện **Access token**, bấm icon copy để sao chép.
-3. Dán vào Vercel: Environment Variables → key `INTERCOM_ACCESS_TOKEN` → **Redeploy**.
-
-Từ giờ, mỗi khi khách chọn "Existing Customer", server sẽ gọi Intercom REST
-API (`POST /conversations`) để tạo 1 conversation thật, gắn đúng contact
-đang tương tác, với nội dung mở đầu "I'm an existing customer and need
-support." — teammate sẽ thấy ngay trong Inbox.
-
-**An toàn:** nếu không cấu hình biến này, hoặc API gọi thất bại (ví dụ thiếu
-quyền), app **tự động fallback** về thông báo đơn giản như trước — không
-bao giờ bị lỗi/crash vì thiếu cấu hình này.
-
----
-
-## 9. Debug khi có lỗi
+## 8. Debug khi có lỗi
 
 - **Sheet không mở / báo lỗi**: mở DevTools → Network → tìm request tới
   `/sheet`, kiểm tra status code và response có phải HTML hợp lệ không.
